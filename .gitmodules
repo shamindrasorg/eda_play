@@ -1,0 +1,3 @@
+[submodule "submodules/purrr-tutorial"]
+	path = submodules/purrr-tutorial
+	url = git@github.com:cwickham/purrr-tutorial.git
