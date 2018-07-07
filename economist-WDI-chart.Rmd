@@ -1,0 +1,101 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+## Economist Learning example
+
+This is a code along to this amazing [recreation of the economist chart](https://www.blog.cultureofinsight.com/2017/07/recreating-an-economist-wdi-chart-in-r/?utm_content=buffera0719&utm_medium=social&utm_source=twitter.com&utm_campaign=buffer).
+
+### Setup
+
+```{r setup, cache=TRUE, results='hide',warning=FALSE,message=FALSE}
+pckgs <- c("tidyverse", "WDI", "gganimate")
+# install.packages(pckgs)
+# devtools::install_github("hrbrmstr/hrbrthemes")
+library(tidyverse)
+# install.packages('extrafont')
+library(extrafont)
+extrafont::font_import()
+extrafont::loadfonts()
+library(WDI)
+library(hrbrthemes)
+library(glue)
+# library(gganimate)
+```
+Apparently `gganimate` is not available for R 3.5.0. It's ok, we'll
+keep working on.
+
+### Get the data
+
+We first get the most up to date data from `WDI`
+*NOTE:* Is this a way to refresh a data package without explicitly using
+`update.packages`? Look into `WDIcache()` functionality.
+
+We can search for the relevant dataset using `regex`. We appear to require
+the `NY.GDP.MKTP.KD` dataset.
+
+```{r src_date, cache=TRUE, echo=TRUE}
+countries <- c("Liberia", "Ukraine", "Rwanda", "Indonesia", "Zimbabwe", "Greece")
+countries_codes <- c("LR","UA", "RW", "ID", "ZW", "GR")
+new_cache = WDI::WDIcache()
+WDI::WDIsearch(string = "gdp.*constant.*2010", cache = new_cache)
+dat <- WDI::WDI(indicator = 'NY.GDP.MKTP.KD', country = countries_codes,
+                start = 1988, end = 2016, cache = new_cache)
+```
+
+### Wrangling the data
+
+```{r wrangle_data_01, cache=TRUE}
+years <- c(1988, 1989, 1992, 1997, 2001, 2007)
+
+#' Create seperate df for each country with appropriate time periods
+#  add GDP indexes and years since columns then store in a list
+#'
+#' @param dat 
+#' @param x 
+filt_cntry <- function(dat, x){
+    out <- dat %>% 
+                dplyr::filter(country == countries[x], 
+                              year >= years[x]) %>% 
+                dplyr::rename(GDP = NY.GDP.MKTP.KD) %>% 
+                dplyr::mutate(index = GDP / (GDP[1] / 100),
+                          years_since = row_number() -1,
+                          country = factor(country, levels = countries))
+    base::return(out)
+}
+
+final_dat <- purrr::map_df(.x = base::seq.int(from = 1, to = length(years),
+                                              by = 1),
+                           ~ filt_cntry(dat = dat, x = .x))
+
+head(final_dat)
+```
+
+### Visualizing
+
+```{r plot_01, cache=TRUE}
+ggplot2::ggplot(data = final_dat, aes(x = years_since, y = index, 
+                                      color = country)) +
+    ggplot2::geom_hline(yintercept = 100, color = "red", linetype = 1) +
+    ggplot2::geom_line(size = 1) +
+    ggplot2::geom_point(aes(x = 0, y = 100), color = "black", size = 2) +
+    ggplot2::scale_x_continuous(expand = c(0.02, 0)) +
+    ggplot2::scale_color_brewer(palette = "Dark2",
+                                labels = base::as.vector(glue::glue('{countries} ({years})'))) +
+    ggplot2::labs(title = "Shock Therapy - Selected Economic Collapses Since 1988", 
+       subtitle = "100 = GDP prior to collapse (in constant 2010 $)",
+       y = "", x = "Years since collapse",
+       caption = "Source: World Bank",
+       color = "Country") +
+    # theme_ipsum(base_family = "Iosevka", grid_col = "white") +
+    ggplot2::theme(plot.background = element_rect(fill = "#cddee7"))
+```
+
+
+# Notes 
+
+The `theme_ipsum` line commented is not working correctly. Come back and resolve this issue.
+
