@@ -1,3 +1,6 @@
 [submodule "submodules/purrr-tutorial"]
 	path = submodules/purrr-tutorial
 	url = git@github.com:cwickham/purrr-tutorial.git
+[submodule "submods/data"]
+	path = submods/data
+	url = git@github.com:fivethirtyeight/data.git

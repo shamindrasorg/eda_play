@@ -2,5 +2,6 @@
 clean:
 	rm -fv *.nb.html
 	rm -rf *_cache/
+	rm -rf *_files/
 
 .PHONY: clean
