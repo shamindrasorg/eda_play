@@ -1,0 +1,168 @@
+---
+title: "Reproducing the Bob Ross Chart - fivethirtyeight"
+author: "Shamindra Shrotriya"
+date: "7/13/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Setup
+
+Let's setup our required libraries for the data wrangling and plotting:
+
+```{r libraries, cache=TRUE, message=FALSE, warning=FALSE}
+library(devtools)
+
+# Define packages to load
+cran_pckgs <- c("here", "tidyverse", "magrittr", "DT", "ggthemes", "scales",
+                "knitr")
+
+# Install them if not on the system
+# install.packages(pkgs = pckgs, dependencies = TRUE) # CRAN
+devtools::install_github("hadley/emo") # EMOJI package
+
+# Load all packages
+# Source: https://blog.mitchelloharawild.com/blog/loading-r-packages-in-a-loop/
+for(pkg in cran_pckgs){
+  eval(bquote(library(.(pkg))))
+}
+```
+
+We will mainly need `tidyverse` and
+`magrittr` (for ye old piping) for this exercise. The `ggthemes` package will
+be used to define the fivethirtyeight theme. In order to load the libraries
+in a clean simple loop, we will use Mitchell O'Hara-Wild's [convenient script](https://blog.mitchelloharawild.com/blog/loading-r-packages-in-a-loop/)
+`r emo::ji("sunglasses")`.
+
+
+## Recreating the Bob Ross chart from Fivethirtyeight
+
+We will attempt to reproduce the Bob Ross barplot from [this fascinating fivethirtyeight article](https://fivethirtyeight.com/features/a-statistical-analysis-of-the-work-of-bob-ross/) by the author [Walt Hickey](https://fivethirtyeight.com/contributors/walt-hickey/). Specifically
+this is the [chart](https://fivethirtyeight.com/wp-content/uploads/2014/04/hickey-ross-tags-1.png?w=1150) we will be reproducing from the article:
+
+![](`r "https://fivethirtyeight.com/wp-content/uploads/2014/04/hickey-ross-tags-1.png?w=1150"`)
+
+
+We will be using the data kindly provided by the author [here](https://github.com/fivethirtyeight/data/tree/master/bob-ross). Let's get cracking `r emo::ji("muscle")`.
+
+## Acknowledgments
+
+As always thanks to fivethirtyeight for creating such fantastic graphics to learn from and for doing the heavy lifting in obtaining and kindly providing the [underlying data and code](https://github.com/fivethirtyeight/data) for exploratory purposes. I've only used their data here and not looked at any code
+provided to enhance my own learning of `ggplot2` and `R` which is the 
+very point of this post `r emo::ji("smile")`.
+
+### Data Load and Processing
+
+Note we can download the data directly from the [raw source](https://raw.githubusercontent.com/fivethirtyeight/data/master/bob-ross/elements-by-episode.csv) or from local file we have saved in our submodule clone
+of the fivethirtyeight github repo. We will go with the latter option as
+we already have the data loaded and will save us unnecessary server calls to 
+github when re-running the code.
+
+```{r data_load, cache=TRUE, message=FALSE}
+# OPTION 1 - Download raw data directly from source
+# ross_url <- "https://raw.githubusercontent.com/fivethirtyeight/data/master/bob-ross/elements-by-episode.csv"
+# ross_dat <- readr::read_csv(file = ross_url)
+
+# OPTION 2 - Load data from our local directory (submodule)
+core_dat_dir <- here::here("submods", "data", "bob-ross")
+ross_dat <- readr::read_csv(file = file.path(core_dat_dir,
+                                             "elements-by-episode.csv"))
+# dir.exists(core_dat_dir) # Just checking that the data dir is valid
+# dplyr::glimpse(ross_dat)
+# ross_dat %>% 
+    # DT::datatable(data = .)    
+```
+
+Interesting, so we have seem to have a unique episode identifier and associated title and then 67 indicator variables of features related to
+Bob Ross' paintings e.g. `BOAT` being 1 presumably indicates that there
+was a painting of a boat for that particular episode.
+
+### Tidying the data
+
+Let's keep the top 20 tags sorted in desceding order:
+
+```{r tidying_data, cache=TRUE}
+ross_tidy <- ross_dat %>% 
+                tidyr::gather(data = ., key = tag, value = indicator, APPLE_FRAME:WOOD_FRAMED)
+
+# Helper function to convert strings to Title case replacing underscores with
+# spaces and trimming appropriately
+new_tag_fmt <- function(str){
+    stringr::str_replace_all(string = str, pattern = "_", 
+                             replacement = " ") %>% 
+        stringr::str_trim() %>%
+        stringr::str_to_title() %>% 
+        base::return()
+}
+
+tot_episodes <- ross_tidy %>% dplyr::select(EPISODE) %>% dplyr::n_distinct()
+ross_tidy2 <- ross_tidy %>% 
+                dplyr::group_by(tag) %>% 
+                dplyr::summarize(total = sum(indicator)) %>%
+                dplyr::ungroup() %>% 
+                dplyr::mutate(tag = base::as.factor(new_tag_fmt(str = tag)),
+                              perc = base::round(total/tot_episodes, 2),
+                              perc_fmt = scales::percent(perc)) %>%
+                dplyr::arrange(desc(total)) %>% 
+                dplyr::filter(total >= 5)
+# DT::datatable(ross_tidy2)
+```
+
+### Creating the plot
+
+So this plot took a lot of adjustments to make. As it can be seen below there
+are more improvements to make but the general idea seems fine. I did reach out
+to stackoverflow to understand an issue I was having with positioning and the
+barwidth. The issue is still not quite resolved though I'm very open to suggestions and improvements `r emo::ji("help")`.
+
+```{r creating_plot, cache=TRUE}
+ross_tidy2 %>% 
+    ggplot2::ggplot(data = ., aes(x = reorder(tag, perc), y = perc)) +
+    ggplot2::geom_bar(stat = "identity", fill = "#198DD1",
+                      position = position_dodge(width = 0.7)) +
+    ggplot2::coord_flip() +
+    ggplot2::labs(title = "The Paintings of Bob Ross",
+                  subtitle = "Percentage containing each element") +
+    ggplot2::geom_text(data = ross_tidy2, nudge_y = 0.02, angle = 270,
+                           aes(reorder(tag, total), y = perc, label = perc_fmt),
+                       family = "Courier", color = "#3E3E3E") +
+    ggthemes::scale_color_fivethirtyeight("cyl") +
+    ggthemes::theme_fivethirtyeight() +
+    ggplot2::theme(panel.border = element_blank(), 
+                   panel.grid.major = element_blank(),
+                   panel.grid.minor = element_blank(), 
+                   axis.line = element_blank(),
+                   axis.ticks.x = element_blank(),
+                   axis.text.x = element_blank(),
+                   plot.title = element_text(size = 18, hjust=-0.5),
+                   plot.subtitle = element_text(size = 14, hjust=-0.5),
+                   axis.text.y = element_text(size = 10))
+```
+
+### Issues and Improvements
+
+The following could clearly be improved:
+
+* Getting access to the full `tag` data from the author would be awesome. This
+would then match the more granular y-axis labels in line with the article rather
+than the summary tags provided. Unlike the author I don't have the stamina to
+autotag all of the episodes, though that would be a good validation of the 
+source data.
+* I would like to have the plot vertically enlarged i.e. stretched, much like
+the source graphic. *Does anyone have any idea how to make this happen to make
+it resemble the actual chart (which may not be produced only using `ggplot2`?*.
+The percentage values are not really legible and I can't adjust the bar width
+and bar position to be dodged at the same time.
+
+### Verdict - Success or Failure
+
+So what's the verdict - Success or Failure? *Not a complete failure* but needs more work per the improvements above.
+
+### Optional - Extract All R code chunks
+
+We can extract all of the `R` code only from the above script using the
+`knitr::purl` command which I learnt from this [neat blog post](http://felixfan.github.io/extract-r-code/).
+
