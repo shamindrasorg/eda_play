@@ -12,10 +12,11 @@ This is a code along to this amazing [10 data visualizations by Colin Fay](https
 ### Setup
 
 ```{r setup, cache=TRUE, results='hide',warning=FALSE,message=FALSE}
-# pckgs <- c("tidyverse", "WDI", "gganimate")
+# pckgs <- c("tidyverse", "gganimate", "maps", "mapproj")
 # install.packages(pckgs)
 # devtools::install_github("hrbrmstr/hrbrthemes")
 # install.packages('extrafont')
+# install.packages("mapproj")
 library(extrafont)
 # extrafont::font_import()
 extrafont::loadfonts()
@@ -23,6 +24,9 @@ library(hrbrthemes)
 library(tidyverse)
 library(glue)
 library(magrittr)
+library(maps)
+library(tidyr)
+library(mapproj)
 ```
 
 ### Data Cleaning
@@ -80,11 +84,79 @@ prim %>%
     dplyr::group_by(year, beneficiaries, disciplinary_sector, ) %>% 
     dplyr::summarize(total = sum(beneficiaries)) %>% 
     ggplot2::ggplot(data = ., aes(x = year, y = total, 
-                                  group = disciplinary_sector)) +
-    ggplot2::geom_bar(stat = "identity", position = "fill") +
+                                  group = disciplinary_sector, 
+                                  col = disciplinary_sector)) +
+    ggplot2::geom_point() +
+    ggplot2::facet_grid(~ disciplinary_sector) +
     labs(x="Year",
        title="Number of Awards per year and discipline",
        subtitle="This is the second plot",
-       caption="Based on Colin Fay's blogpost") +
-    hrbrthemes::theme_ipsum()
+       caption="Based on Colin Fay's blogpost")
+```
+
+### Plot 4 - Mapping
+
+```{r plot04, cache=TRUE, message=FALSE}
+# base::colnames(prim)
+prim2 <- prim %>% 
+            tidyr::separate(geo_localisation, into = c("lat", "lon"), 
+                            sep = ",") %>%
+            dplyr::mutate(lat = as.numeric(lat),
+                          lon = as.numeric(lon)) %>% 
+            dplyr::group_by(lat, lon) %>% 
+            dplyr::summarize(total = sum(beneficiaries)) %>% 
+            dplyr::filter(lon >= -5, lon <= 10, lat >= 40, lat <= 60)
+# head(prim2) %>% View()
+states <- ggplot2::map_data(map = "france")
+# View(states)
+ggplot2::ggplot(states, aes(x = long, y = lat, group = group)) +
+    ggplot2::geom_polygon(fill = "#e4e4e4") +
+    ggplot2::coord_map() +
+    ggplot2::geom_path(data = states, aes(x = long, y = lat, 
+                                          group = group, fill = NULL), 
+                       color = "grey50") +
+    ggplot2::geom_point(data = prim2, aes(x = lon, y = lat,
+                                          group = NULL, 
+                                          size = total, col = "blue")) +
+    scale_size(range = c(1,10)) +
+    xlim(range(range(states$long))) +
+    ylim(range(range(states$lat))) +
+    labs(title = "Les bénéficiaires de la prime d'excellence scientifique")
+```
+
+### Plot 5 - Boxplots
+
+```{r plot05, cache=TRUE, message=FALSE}
+# base::colnames(prim)
+prim %>% 
+    ggplot2::ggplot(data = ., mapping = aes(x = region, y = beneficiaries)) +
+    ggplot2::geom_boxplot(col = "purple") +
+    ggplot2::coord_flip() +
+    ggplot2::labs(title = "Les bénéficiaires de la prime d'excellence scientifique")
+```
+
+### Plot 6 - Dotplot
+
+```{r plot06, cache=TRUE, message=FALSE}
+# base::colnames(prim)
+prim %>% 
+    dplyr::group_by(region) %>% 
+    dplyr::summarize(total = sum(beneficiaries)) %>% 
+    ggplot2::ggplot(data = ., mapping = aes(reorder(region, total), total)) +
+    ggplot2::geom_point(col = "red", size = 4) +
+    ggplot2::coord_flip() +
+    ggplot2::labs(title = "Les bénéficiaires de la prime d'excellence scientifique") + hrbrthemes::theme_ipsum()
+```
+
+### Plot 7 - Dotplot Busy
+
+```{r plot07, cache=TRUE, message=FALSE}
+# base::colnames(prim)
+prim %>% 
+    dplyr::group_by(establishment) %>% 
+    dplyr::summarize(total = sum(beneficiaries)) %>% 
+    ggplot2::ggplot(data = ., mapping = aes(reorder(establishment, total), total)) +
+    ggplot2::geom_point(col = "red", size = 4) +
+    ggplot2::coord_flip() +
+    ggplot2::labs(title = "Les bénéficiaires de la prime d'excellence scientifique") + hrbrthemes::theme_ipsum()
 ```
