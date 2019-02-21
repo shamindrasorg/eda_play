@@ -53,6 +53,9 @@ Now we are set! Let's get plotting
 
 ## Constructing the plot
 
+The code below helps construct the plot. This was based on assistance from
+[Rick Pack's helpful gist](https://gist.github.com/RickPack/7894ebbe205962135644f9b77ea0b97e) which helped with the fine details.
+
 ```{r, cache=TRUE}
 yr <- 2002
 trm_gm %>% 
@@ -62,7 +65,7 @@ trm_gm %>%
                             size = pop), shape = 21) +
     ggplot2::guides(fill=guide_legend(title="Region")) +
     ggplot2::ylim(20, 100) +
-    ggplot2::scale_x_log10() +
+    scale_x_log10(breaks = 2^(-1:7) * 1000) +  
     # scale_fill_viridis_d() +
     scale_size(range = c(1, 20), guide = FALSE) +
     ggplot2::theme_bw() +
