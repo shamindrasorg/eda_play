@@ -1,0 +1,70 @@
+---
+title: "Dice Rolls Histogram Animation"
+author: "Shamindra Shrotriya"
+date: "2/25/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(gganimate)
+library(gifski)
+```
+
+## Histogram of Numerous Dice Rolls
+
+There has been a very cool dice roll simulation 
+going around on twitter/ reddit as shown below:
+
+![](https://i.redd.it/07gy7gdruei21.gif)
+
+We can find the original `reddit` post [here](https://www.reddit.com/r/dataisbeautiful/comments/au25nq/simulating_6000_die_rolls_visualization_created/).
+
+## How to simulate this in `R`
+
+The author provides a nice long looped implementation of the
+underlying data and the animation construction using `Imagemagick`.
+
+However awesome `R` educator and statistician David Robinson provided
+a `tidyverse` and `gganimate` solution [here](https://gist.github.com/dgrtwo/d590078aae86e24418a7cf5a9fb31ae3), pasted below:
+
+```{r drob_soln, cache=TRUE}
+# Setup
+options(gganimate.nframes = 200)
+set.seed(2019)
+
+simulation <- tibble(roll = 1:10000) %>%
+  mutate(result = sample(6, n(), replace = TRUE)) %>%
+  crossing(nrolls = seq(10, 10000, 10)) %>%
+  filter(roll <= nrolls) %>%
+  count(nrolls, result)
+
+ggplot(simulation, aes(result, n, fill = factor(result))) +
+  geom_col(position = "identity", show.legend = FALSE) +
+  transition_manual(nrolls) +
+  view_follow() +
+  scale_x_continuous(breaks = 1:6) +
+  labs(y = "# of rolls with this result",
+       title = "Distribution of results after { current_frame } rolls of a six-sided die")
+```
+
+This is an amazingly beautiful solution! Let's learn from it by understanding
+the key steps.
+
+## Understanding drob's solution
+
+The high level strategy is simple
+
+```{r}
+
+```
+
+
+
+
+
+
